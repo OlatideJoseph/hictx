@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hictx-frontend
+  namespace: hictx
+  labels: { app: hictx-frontend }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: hictx-frontend }
+  template:
+    metadata:
+      labels: { app: hictx-frontend }
+    spec:
+      containers:
+        - name: web
+          image: REGISTRY/hictx-frontend:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet: { path: /, port: 80 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "25m", memory: "32Mi" }
+            limits: { memory: "128Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hictx-frontend
+  namespace: hictx
+spec:
+  selector: { app: hictx-frontend }
+  ports:
+    - port: 80
+      targetPort: 80

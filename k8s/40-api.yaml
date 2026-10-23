@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hictx-api
+  namespace: hictx
+  labels: { app: hictx-api }
+spec:
+  replicas: 2                 # baseline; the HPA takes over from here
+  selector:
+    matchLabels: { app: hictx-api }
+  template:
+    metadata:
+      labels: { app: hictx-api }
+    spec:
+      containers:
+        - name: api
+          image: REGISTRY/hictx-api:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef: { name: hictx-config }
+            - secretRef: { name: hictx-secrets }
+          # resources.requests.cpu is REQUIRED for CPU-based autoscaling — the HPA
+          # computes utilization as (usage / request).
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits: { cpu: "1", memory: "1Gi" }
+          # Readiness gates traffic on being able to serve (a full/overloaded or
+          # starting pod is pulled out of the Service until it's ready again).
+          readinessProbe:
+            httpGet: { path: /api/, port: 8000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Liveness only restarts a truly hung process (TCP, not an app endpoint,
+          # so a transient DB blip doesn't trigger restarts).
+          livenessProbe:
+            tcpSocket: { port: 8000 }
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 3
+          volumeMounts:
+            - name: clones
+              mountPath: /data/clones
+      volumes:
+        - name: clones
+          persistentVolumeClaim:
+            claimName: hictx-clones
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hictx-api
+  namespace: hictx
+spec:
+  selector: { app: hictx-api }
+  ports:
+    - port: 80
+      targetPort: 8000

@@ -1,0 +1,19 @@
+# Runs database migrations once before/after a rollout. Re-run it (or delete and
+# re-apply) on each deploy that ships new migrations.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hictx-migrate
+  namespace: hictx
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: REGISTRY/hictx-api:latest   # same image as the API
+          command: ["uv", "run", "python", "manage.py", "migrate", "--noinput"]
+          envFrom:
+            - configMapRef: { name: hictx-config }
+            - secretRef: { name: hictx-secrets }

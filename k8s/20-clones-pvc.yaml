@@ -1,0 +1,16 @@
+# Shared storage for the persistent git clones (GRAPH_CLONE_ROOT). Because the API
+# is scaled to several replicas and any of them may run an ingestion, this must be
+# ReadWriteMany (e.g. AWS EFS, Azure Files, GCP Filestore, or an NFS provisioner).
+# If your cluster only has ReadWriteOnce storage, keep the API at 1 replica for
+# writes, or split ingestion into its own single-replica worker Deployment.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hictx-clones
+  namespace: hictx
+spec:
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: 20Gi
+  # storageClassName: efs-sc   # set to your RWX storage class

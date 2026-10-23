@@ -1,0 +1,31 @@
+# Routes /api* to the Django API and everything else to the SPA, on one host.
+# Assumes an ingress-nginx controller; adjust annotations/class for your cluster.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hictx
+  namespace: hictx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "180"   # story/LLM calls are slow
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: hictx.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: hictx-api
+                port: { number: 80 }
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hictx-frontend
+                port: { number: 80 }
+  # tls:
+  #   - hosts: [hictx.example.com]
+  #     secretName: hictx-tls   # e.g. provisioned by cert-manager

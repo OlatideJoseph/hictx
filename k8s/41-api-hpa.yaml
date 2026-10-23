@@ -1,0 +1,49 @@
+# Autoscales the API when it's under load ("an api server is full"). Requires the
+# cluster metrics-server (kubectl top pods must work).
+#
+# It adds replicas when average CPU across pods crosses 70% of their request, or
+# memory crosses 80% — and removes them (slowly) when load drops. Combined with
+# the readiness probe in 40-api.yaml, a saturated pod is both taken out of
+# rotation AND triggers a scale-out.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hictx-api
+  namespace: hictx
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: hictx-api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30     # react quickly to a spike
+      policies:
+        - type: Percent
+          value: 100                     # may double the pods
+          periodSeconds: 30
+        - type: Pods
+          value: 4                        # …or add up to 4 at once
+          periodSeconds: 30
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300    # scale down calmly, avoid flapping
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
